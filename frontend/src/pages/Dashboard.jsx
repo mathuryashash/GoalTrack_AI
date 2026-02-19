@@ -21,6 +21,7 @@ const Dashboard = () => {
             setTasks(res.data);
         } catch (err) {
             console.error("Fetch failed", err);
+            alert("Failed to fetch tasks: " + err.message);
         }
     };
 
@@ -31,9 +32,14 @@ const Dashboard = () => {
     const addTask = async (e) => {
         e.preventDefault();
         if (!title) return;
-        await axios.post('/tasks/', { title, priority });
-        setTitle('');
-        fetchTasks();
+        try {
+            await axios.post('/tasks/', { title, priority });
+            setTitle('');
+            fetchTasks();
+        } catch (err) {
+            console.error("Add failed", err);
+            alert("Failed to add goal. Error: " + (err.response?.data?.message || err.message));
+        }
     };
 
     const updateProgress = async (id, currentProgress, delta) => {

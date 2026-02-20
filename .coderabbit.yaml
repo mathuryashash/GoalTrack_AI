@@ -1,0 +1,8 @@
+# CodeRabbit configuration
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+
+reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+  poem: false

@@ -10,35 +10,60 @@ const API_BASE = import.meta.env.PROD
 
 axios.defaults.baseURL = API_BASE;
 
+// Set Axios timeout to 15 seconds to allow for backend cold start
+axios.defaults.timeout = 15000;
+
 const Dashboard = () => {
     const [tasks, setTasks] = useState([]);
     const [title, setTitle] = useState('');
     const [priority, setPriority] = useState(3);
+    const [isWaking, setIsWaking] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const fetchTasks = async () => {
+    const fetchTasks = async (showWaking = false) => {
+        if (showWaking) setIsWaking(true);
+        setLoading(true);
         try {
             const res = await axios.get('/tasks/');
             setTasks(res.data);
+            setIsWaking(false);
         } catch (err) {
             console.error("Fetch failed", err);
-            alert("Failed to fetch tasks: " + err.message);
+            if (err.code === 'ECONNABORTED' || err.message.includes('Network Error')) {
+                setIsWaking(true);
+                // Silently retry once after 5 seconds if it looks like a cold start
+                setTimeout(() => fetchTasks(), 5000);
+            } else {
+                alert("Failed to fetch tasks: " + err.message);
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchTasks();
+        fetchTasks(true);
     }, []);
 
     const addTask = async (e) => {
         e.preventDefault();
         if (!title) return;
+        setLoading(true);
         try {
             await axios.post('/tasks/', { title, priority });
             setTitle('');
             fetchTasks();
         } catch (err) {
             console.error("Add failed", err);
-            alert("Failed to add goal. Error: " + (err.response?.data?.message || err.message));
+            const errorMsg = err.response?.data?.message || err.message;
+            if (err.code === 'ECONNABORTED' || err.message.includes('Network Error')) {
+                alert("Server is still waking up. Please wait a few seconds and try again.");
+                setIsWaking(true);
+            } else {
+                alert("Failed to add goal. Error: " + errorMsg);
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -131,6 +156,7 @@ const Dashboard = () => {
                             placeholder="e.g., Coding and developing"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
+                            disabled={loading}
                         />
                     </div>
                     <div style={{ width: '150px' }}>
@@ -139,6 +165,7 @@ const Dashboard = () => {
                             className="glass-input"
                             value={priority}
                             onChange={(e) => setPriority(parseInt(e.target.value))}
+                            disabled={loading}
                         >
                             <option value="1">1 - Critical</option>
                             <option value="2">2 - High</option>
@@ -147,10 +174,24 @@ const Dashboard = () => {
                             <option value="5">5 - Lowest</option>
                         </select>
                     </div>
-                    <button className="glass-btn" type="submit" style={{ marginTop: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Plus size={18} /> Add Goal
+                    <button
+                        className="glass-btn"
+                        type="submit"
+                        style={{ marginTop: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.5 : 1 }}
+                        disabled={loading}
+                    >
+                        <Plus size={18} /> {loading ? 'Adding...' : 'Add Goal'}
                     </button>
                 </form>
+                {isWaking && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        style={{ marginTop: '1rem', color: 'var(--accent-warning)', fontSize: '0.85rem', textAlign: 'center' }}
+                    >
+                        🚀 Backend is waking up... This might take a few seconds on first load.
+                    </motion.div>
+                )}
             </motion.div>
 
             {/* Tasks Table */}

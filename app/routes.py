@@ -8,6 +8,10 @@ def get_tasks():
     tasks = Task.query.order_by(Task.created_at.desc()).all()
     return jsonify([t.to_dict() for t in tasks])
 
+@tasks_bp.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 @tasks_bp.route('/', methods=['POST'])
 def create_task():
     data = request.json
